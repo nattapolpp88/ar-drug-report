@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>3D Monthly Top 20 Drug Cost Report</title>
+  <title>3D Historical Drug Cost Trends (Top 20 Multi-Year)</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -21,7 +21,7 @@
 
     #canvas-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
 
-    /* Top Filter & Info Card */
+    /* Top Dashboard Header */
     .header-card {
       position: absolute;
       top: 15px; left: 15px; right: 15px;
@@ -36,8 +36,7 @@
     }
     .header-title { font-size: 16px; font-weight: 700; color: #38bdf8; display: flex; align-items: center; justify-content: space-between; }
     
-    /* Filters */
-    .filter-group { display: flex; gap: 8px; margin-top: 10px; }
+    .filter-group { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
     select {
       background: #1e293b;
       color: #38bdf8;
@@ -51,6 +50,26 @@
     }
     .header-sub { font-size: 13px; color: #94a3b8; margin-top: 8px; }
     .header-sub b { color: #f8fafc; }
+
+    /* Year Legend */
+    .legend-container {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
 
     /* Touch Guide */
     .touch-guide {
@@ -69,7 +88,7 @@
       white-space: nowrap;
     }
 
-    /* Detail Modal on Tap */
+    /* Detail Modal */
     #detail-card {
       position: absolute;
       bottom: 55px; left: 20px; right: 20px;
@@ -96,32 +115,47 @@
 </head>
 <body>
 
-  <div id="loading-spinner">กำลังดึงข้อมูลรายงานยารายเดือน...</div>
+  <div id="loading-spinner">กำลังดึงข้อมูลและประมวลผล 3D Trends...</div>
 
-  <!-- Header & Dropdowns -->
+  <!-- Header -->
   <div class="header-card">
     <div class="header-title">
-      <span>📊 รายงานมูลค่าการใช้ยา Top 20</span>
+      <span>📊 รายงานแนวโน้มมูลค่ายา Top 20 ย้อนหลัง (3D Waterfall)</span>
     </div>
     
     <div class="filter-group">
-      <select id="year-select" onchange="onYearChange()">
-        <option value="">กำลังโหลดปี...</option>
+      <select id="mode-select" onchange="onModeChange()">
+        <option value="yearly_sum">สรุปรวมมูลค่าย้อนหลังรายปี (ทุกปี พ.ศ.)</option>
+        <option value="same_month">เปรียบเทียบเดือนเดียวกันย้อนหลังทุกปี</option>
       </select>
-      <select id="month-select" onchange="onMonthChange()">
-        <option value="">กำลังโหลดเดือน...</option>
+      <select id="month-filter" style="display:none;" onchange="renderMultiYearTrends()">
+        <option value="01">มกราคม</option>
+        <option value="02">กุมภาพันธ์</option>
+        <option value="03">มีนาคม</option>
+        <option value="04">เมษายน</option>
+        <option value="05">พฤษภาคม</option>
+        <option value="06">มิถุนายน</option>
+        <option value="07">กรกฎาคม</option>
+        <option value="08">สิงหาคม</option>
+        <option value="09">กันยายน</option>
+        <option value="10">ตุลาคม</option>
+        <option value="11">พฤศจิกายน</option>
+        <option value="12">ธันวาคม</option>
       </select>
     </div>
 
-    <div class="header-sub" id="sub-info">กำลังเชื่อมต่อฐานข้อมูล...</div>
+    <!-- แถบสีระบุปีย้อนหลัง -->
+    <div class="legend-container" id="legend-list"></div>
+    <div class="header-sub" id="sub-info">แกนแนวตั้ง: มูลค่า | แถวลึก: ปีย้อนหลัง | เรียงซ้าย-ขวา: ยา Top 20</div>
   </div>
 
   <div id="canvas-container"></div>
-  <div class="touch-guide">👆 หมุน 360° | จีบนิ้วซูม | แตะแท่งยาเพื่อดูรายละเอียด</div>
+  <div class="touch-guide">👆 หมุน 360° เพื่อดูแนวโน้มแต่ละปี | จีบนิ้วซูม | แตะแท่งยาเพื่อดูตัวเลข</div>
 
-  <!-- Detail Card -->
+  <!-- Popup Detail -->
   <div id="detail-card" onclick="this.style.display='none'">
     <span class="drug-badge" id="popup-rank">อันดับ 1</span>
+    <span class="drug-badge" id="popup-year" style="background:#f59e0b;">ปี 2569</span>
     <div class="drug-name" id="popup-name">ชื่อยา</div>
     <div style="font-size: 13px; color: #cbd5e1;" id="popup-spec">ขนาดความแรง</div>
     <div class="drug-stats">
@@ -133,14 +167,14 @@
   <script>
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwmIj5s5Ru1KhHIU6M5v6o3GSvpuUyiabUXYMIVsYsTQW6wuoSiIdHCUKppPbsYo4XWAw/exec";
 
-    const THAI_MONTHS = {
-      '01': 'มกราคม', '02': 'กุมภาพันธ์', '03': 'มีนาคม', '04': 'เมษายน',
-      '05': 'พฤษภาคม', '06': 'มิถุนายน', '07': 'กรกฎาคม', '08': 'สิงหาคม',
-      '09': 'กันยายน', '10': 'ตุลาคม', '11': 'พฤศจิกายน', '12': 'ธันวาคม',
-      '1': 'มกราคม', '2': 'กุมภาพันธ์', '3': 'มีนาคม', '4': 'เมษายน',
-      '5': 'พฤษภาคม', '6': 'มิถุนายน', '7': 'กรกฎาคม', '8': 'สิงหาคม',
-      '9': 'กันยายน'
-    };
+    // สีประจำแต่ละปี (ปีล่าสุดเด่นสุด ไล่ความสว่างไปปีย้อนหลัง)
+    const YEAR_COLORS = [
+      0x38bdf8, // ฟ้าสว่าง (ปีล่าสุด)
+      0x22c55e, // เขียว
+      0xf59e0b, // ส้มทอง
+      0xa855f7, // ม่วง
+      0x64748b  // เทา (ปีเก่าสุด)
+    ];
 
     let allReportsData = [];
     let scene, camera, renderer, controls;
@@ -149,14 +183,15 @@
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    function createLabelSprite(rank, name, cost) {
+    // สร้างป้ายชื่อยา/ปี/มูลค่า
+    function createLabelSprite(text, subText, colorHex) {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       canvas.width = 512;
       canvas.height = 256;
 
       ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-      ctx.strokeStyle = rank <= 3 ? '#f59e0b' : '#38bdf8';
+      ctx.strokeStyle = '#' + colorHex.toString(16).padStart(6, '0');
       ctx.lineWidth = 8;
       
       ctx.beginPath();
@@ -165,14 +200,13 @@
       ctx.stroke();
 
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 36px Sarabun, sans-serif';
+      ctx.font = 'bold 34px Sarabun, sans-serif';
       ctx.textAlign = 'center';
-      const shortName = name.length > 15 ? name.substring(0, 14) + '…' : name;
-      ctx.fillText(`#${rank} ${shortName}`, 256, 95);
+      ctx.fillText(text, 256, 95);
 
-      ctx.fillStyle = '#38bdf8';
-      ctx.font = 'bold 44px Sarabun, sans-serif';
-      ctx.fillText('฿' + Number(cost).toLocaleString(), 256, 175);
+      ctx.fillStyle = '#' + colorHex.toString(16).padStart(6, '0');
+      ctx.font = 'bold 42px Sarabun, sans-serif';
+      ctx.fillText(subText, 256, 175);
 
       const texture = new THREE.CanvasTexture(canvas);
       texture.minFilter = THREE.LinearFilter;
@@ -185,7 +219,7 @@
       const container = document.getElementById('canvas-container');
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-      camera.position.set(0, 16, 24);
+      camera.position.set(-15, 22, 35);
 
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
@@ -196,14 +230,14 @@
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
       controls.maxPolarAngle = Math.PI / 2.05;
-      controls.target.set(0, 2, 0);
+      controls.target.set(0, 3, 0);
 
       scene.add(new THREE.AmbientLight(0xffffff, 0.85));
       const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-      dirLight.position.set(10, 25, 15);
+      dirLight.position.set(20, 35, 25);
       scene.add(dirLight);
 
-      const gridHelper = new THREE.GridHelper(18, 18, 0x38bdf8, 0x1e293b);
+      const gridHelper = new THREE.GridHelper(36, 36, 0x38bdf8, 0x1e293b);
       scene.add(gridHelper);
       scene.add(chartGroup);
 
@@ -222,82 +256,137 @@
       })();
     }
 
-    function renderReportData(report) {
-      document.getElementById('sub-info').innerHTML = 
-        `งวด: <b>${report.date}</b> | รวมมูลค่า: <b>${Number(report.totalCost).toLocaleString()} บาท</b>`;
+    function onModeChange() {
+      const mode = document.getElementById('mode-select').value;
+      document.getElementById('month-filter').style.display = mode === 'same_month' ? 'inline-block' : 'none';
+      renderMultiYearTrends();
+    }
 
+    function renderMultiYearTrends() {
       while (chartGroup.children.length > 0) {
         chartGroup.remove(chartGroup.children[0]);
       }
       barMeshes = [];
 
-      const items = report.items || [];
-      const maxCost = Math.max(...items.map(d => d.cost), 1);
-      const maxHeight = 7.5;
-      const cols = 5;
-      const spacing = 2.8;
-      const offsetX = ((cols - 1) * spacing) / 2;
-      const offsetZ = ((4 - 1) * spacing) / 2;
-
-      items.forEach((item, index) => {
-        const row = Math.floor(index / cols);
-        const col = index % cols;
-        const barHeight = maxCost > 0 ? (item.cost / maxCost) * maxHeight : 0.5;
-
-        let colorHex = 0x0284c7;
-        if (item.rank === 1) colorHex = 0xef4444;
-        else if (item.rank === 2) colorHex = 0xf97316;
-        else if (item.rank === 3) colorHex = 0xeab308;
-
-        const geometry = new THREE.BoxGeometry(1.4, barHeight, 1.4);
-        geometry.translate(0, barHeight / 2, 0);
-
-        const material = new THREE.MeshStandardMaterial({
-          color: colorHex,
-          roughness: 0.25,
-          metalness: 0.35,
-          transparent: true,
-          opacity: 0.9
-        });
-
-        const mesh = new THREE.Mesh(geometry, material);
-        const posX = col * spacing - offsetX;
-        const posZ = row * spacing - offsetZ;
-        mesh.position.set(posX, 0, posZ);
-        mesh.userData = item;
-        chartGroup.add(mesh);
-        barMeshes.push(mesh);
-
-        const label = createLabelSprite(item.rank, item.name, item.cost);
-        label.position.set(posX, barHeight + 0.9, posZ);
-        chartGroup.add(label);
-      });
-    }
-
-    function populateFilters() {
-      const years = [...new Set(allReportsData.map(r => r.year))].filter(Boolean).sort().reverse();
-      const yearSelect = document.getElementById('year-select');
-      yearSelect.innerHTML = years.map(y => `<option value="${y}">ปี พ.ศ. ${y}</option>`).join('');
-      onYearChange();
-    }
-
-    function onYearChange() {
-      const selectedYear = document.getElementById('year-select').value;
-      const filteredReports = allReportsData.filter(r => r.year === selectedYear);
+      const mode = document.getElementById('mode-select').value;
+      const selectedMonth = document.getElementById('month-filter').value;
       
-      const monthSelect = document.getElementById('month-select');
-      monthSelect.innerHTML = filteredReports.map(r => {
-        const mName = THAI_MONTHS[r.month] || ('เดือน ' + r.month);
-        return `<option value="${r.date}">${mName}</option>`;
+      // ดึงรายชื่อปีทั้งหมด
+      const years = [...new Set(allReportsData.map(r => r.year))].filter(Boolean).sort().reverse();
+      const latestYear = years[0];
+
+      // หารายการยา Top 20 อ้างอิงจากปีล่าสุด
+      const latestReports = allReportsData.filter(r => r.year === latestYear);
+      const drugAggLatest = {};
+      latestReports.forEach(rep => {
+        rep.items.forEach(item => {
+          if (!drugAggLatest[item.name]) drugAggLatest[item.name] = 0;
+          drugAggLatest[item.name] += item.cost;
+        });
+      });
+
+      // เรียง 20 อันดับยาแรก
+      const top20DrugNames = Object.keys(drugAggLatest)
+        .sort((a, b) => drugAggLatest[b] - drugAggLatest[a])
+        .slice(0, 20);
+
+      // สร้าง Legend แสดงสีประจำปี
+      const legendDiv = document.getElementById('legend-list');
+      legendDiv.innerHTML = years.map((y, idx) => {
+        const color = '#' + (YEAR_COLORS[idx % YEAR_COLORS.length]).toString(16).padStart(6, '0');
+        return `<div class="legend-item"><div class="legend-color" style="background:${color};"></div> พ.ศ. ${y}</div>`;
       }).join('');
 
-      onMonthChange();
-    }
+      // คำนวณข้อมูลงวด/ปี สำหรับยา 20 ตัว
+      let maxCost = 1;
+      const matrixData = []; // [yearIndex][drugIndex]
 
-    function onMonthChange() {
-      const selectedDate = document.getElementById('month-select').value;
-      const report = allReportsData.find(r => r.date === selectedDate);
-      if (report) renderReportData(report);
+      years.forEach((yr, yIdx) => {
+        const yearRow = [];
+        let reportsInYear = allReportsData.filter(r => r.year === yr);
+        if (mode === 'same_month') {
+          reportsInYear = reportsInYear.filter(r => r.month === selectedMonth);
+        }
+
+        top20DrugNames.forEach((drugName, dIdx) => {
+          let sumCost = 0;
+          let sumQty = 0;
+          let unit = '';
+          let strength = '';
+
+          reportsInYear.forEach(rep => {
+            const found = rep.items.find(i => i.name === drugName);
+            if (found) {
+              sumCost += found.cost;
+              sumQty += found.quantity;
+              unit = found.unit;
+              strength = found.strength;
+            }
+          });
+
+          if (sumCost > maxCost) maxCost = sumCost;
+
+          yearRow.push({
+            year: yr,
+            rank: dIdx + 1,
+            name: drugName,
+            strength: strength,
+            unit: unit,
+            cost: sumCost,
+            quantity: sumQty,
+            colorHex: YEAR_COLORS[yIdx % YEAR_COLORS.length]
+          });
+        });
+        matrixData.push(yearRow);
+      });
+
+      // วางแท่งกราฟ 3D: แกน X = รายการยา (20 ตัว), แกน Z = ปีย้อนหลัง
+      const maxHeight = 9.0;
+      const spacingX = 2.2;
+      const spacingZ = 3.2;
+      const offsetX = ((top20DrugNames.length - 1) * spacingX) / 2;
+      const offsetZ = ((years.length - 1) * spacingZ) / 2;
+
+      matrixData.forEach((yearRow, zIdx) => {
+        const posZ = zIdx * spacingZ - offsetZ;
+
+        // ป้ายหัวแถวระบุปี พ.ศ. ด้านข้าง
+        const yrLabel = createLabelSprite(`พ.ศ. ${years[zIdx]}`, mode === 'same_month' ? `เดือน ${selectedMonth}` : 'ทั้งปี', yearRow[0].colorHex);
+        yrLabel.position.set(-offsetX - 2.5, 1.5, posZ);
+        yrLabel.scale.set(2.0, 1.0, 1);
+        chartGroup.add(yrLabel);
+
+        yearRow.forEach((item, xIdx) => {
+          const posX = xIdx * spacingX - offsetX;
+          const barHeight = (item.cost / maxCost) * maxHeight || 0.15;
+
+          const geometry = new THREE.BoxGeometry(1.2, barHeight, 1.4);
+          geometry.translate(0, barHeight / 2, 0);
+
+          const material = new THREE.MeshStandardMaterial({
+            color: item.colorHex,
+            roughness: 0.25,
+            metalness: 0.35,
+            transparent: true,
+            opacity: 0.92
+          });
+
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.position.set(posX, 0, posZ);
+          mesh.userData = item;
+          chartGroup.add(mesh);
+          barMeshes.push(mesh);
+
+          // ติดป้ายเฉพาะแถวปีล่าสุด หรือแท่งที่มีมูลค่าเพื่อความสบายตา
+          if (zIdx === 0 && item.cost > 0) {
+            const shortName = item.name.length > 10 ? item.name.substring(0, 9) + '…' : item.name;
+            const label = createLabelSprite(`#${item.rank} ${shortName}`, '฿' + (item.cost / 1000).toFixed(0) + 'k', item.colorHex);
+            label.position.set(posX, barHeight + 0.9, posZ);
+            label.scale.set(1.8, 0.9, 1);
+            chartGroup.add(label);
+          }
+        });
+      });
     }
 
     function onPointerDown(event) {
@@ -310,6 +399,7 @@
         const item = intersects[0].object.userData;
         const card = document.getElementById('detail-card');
         document.getElementById('popup-rank').innerText = `อันดับ ${item.rank}`;
+        document.getElementById('popup-year').innerText = `ปี พ.ศ. ${item.year}`;
         document.getElementById('popup-name').innerText = item.name;
         document.getElementById('popup-spec').innerText = `ขนาดความแรง: ${item.strength || '-'} | หน่วย: ${item.unit || '-'}`;
         document.getElementById('popup-cost').innerText = Number(item.cost).toLocaleString();
@@ -325,18 +415,14 @@
         const data = await res.json();
         document.getElementById('loading-spinner').style.display = 'none';
 
-        if (data.success && data.reports && data.reports.length > 0) {
+        if (data.success && data.reports) {
           allReportsData = data.reports;
-          populateFilters();
-        } else if (data.success && data.items) {
-          // Fallback รองรับเวอร์ชันเดิม
-          renderReportData(data);
+          renderMultiYearTrends();
         } else {
-          alert('ไม่พบข้อมูลรายงานในระบบ');
+          alert('ไม่พบข้อมูลในระบบ');
         }
       } catch (err) {
-        console.error(err);
-        document.getElementById('loading-spinner').innerText = 'โหลดข้อมูลไม่สำเร็จ ตรวจสอบสิทธิ์ URL';
+        document.getElementById('loading-spinner').innerText = 'โหลดข้อมูลไม่สำเร็จ ตรวจสอบ URL';
       }
     });
   </script>
