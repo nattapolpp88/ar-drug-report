@@ -25,7 +25,7 @@
     .header-card {
       position: absolute;
       top: 15px; left: 15px; right: 15px;
-      background: rgba(15, 23, 42, 0.85);
+      background: rgba(15, 23, 42, 0.88);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.15);
@@ -42,7 +42,7 @@
       background: #1e293b;
       color: #38bdf8;
       border: 1px solid #0284c7;
-      padding: 6px 10px;
+      padding: 8px 12px;
       border-radius: 8px;
       font-size: 13px;
       font-family: 'Sarabun', sans-serif;
@@ -98,19 +98,18 @@
 
   <div id="loading-spinner">กำลังดึงข้อมูลรายงานยารายเดือน...</div>
 
-  <!-- Header & Selectors -->
+  <!-- Header & Dropdowns -->
   <div class="header-card">
     <div class="header-title">
       <span>📊 รายงานมูลค่าการใช้ยา Top 20</span>
     </div>
     
-    <!-- ฟิลเตอร์เลือกปี และ เดือน -->
     <div class="filter-group">
       <select id="year-select" onchange="onYearChange()">
-        <option value="">เลือกปี พ.ศ.</option>
+        <option value="">กำลังโหลดปี...</option>
       </select>
       <select id="month-select" onchange="onMonthChange()">
-        <option value="">เลือกเดือน</option>
+        <option value="">กำลังโหลดเดือน...</option>
       </select>
     </div>
 
@@ -120,7 +119,7 @@
   <div id="canvas-container"></div>
   <div class="touch-guide">👆 หมุน 360° | จีบนิ้วซูม | แตะแท่งยาเพื่อดูรายละเอียด</div>
 
-  <!-- Popup Detail -->
+  <!-- Detail Card -->
   <div id="detail-card" onclick="this.style.display='none'">
     <span class="drug-badge" id="popup-rank">อันดับ 1</span>
     <div class="drug-name" id="popup-name">ชื่อยา</div>
@@ -132,13 +131,15 @@
   </div>
 
   <script>
-    // 🔴 ใส่ Web app URL ของคุณที่นี่
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwmIj5s5Ru1KhHIU6M5v6o3GSvpuUyiabUXYMIVsYsTQW6wuoSiIdHCUKppPbsYo4XWAw/exec";
 
     const THAI_MONTHS = {
       '01': 'มกราคม', '02': 'กุมภาพันธ์', '03': 'มีนาคม', '04': 'เมษายน',
       '05': 'พฤษภาคม', '06': 'มิถุนายน', '07': 'กรกฎาคม', '08': 'สิงหาคม',
-      '09': 'กันยายน', '10': 'ตุลาคม', '11': 'พฤศจิกายน', '12': 'ธันวาคม'
+      '09': 'กันยายน', '10': 'ตุลาคม', '11': 'พฤศจิกายน', '12': 'ธันวาคม',
+      '1': 'มกราคม', '2': 'กุมภาพันธ์', '3': 'มีนาคม', '4': 'เมษายน',
+      '5': 'พฤษภาคม', '6': 'มิถุนายน', '7': 'กรกฎาคม', '8': 'สิงหาคม',
+      '9': 'กันยายน'
     };
 
     let allReportsData = [];
@@ -184,7 +185,7 @@
       const container = document.getElementById('canvas-container');
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-      camera.position.set(0, 15, 22);
+      camera.position.set(0, 16, 24);
 
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
@@ -225,14 +226,13 @@
       document.getElementById('sub-info').innerHTML = 
         `งวด: <b>${report.date}</b> | รวมมูลค่า: <b>${Number(report.totalCost).toLocaleString()} บาท</b>`;
 
-      // ล้างโมเดลเดิมออก
       while (chartGroup.children.length > 0) {
         chartGroup.remove(chartGroup.children[0]);
       }
       barMeshes = [];
 
-      const items = report.items;
-      const maxCost = Math.max(...items.map(d => d.cost));
+      const items = report.items || [];
+      const maxCost = Math.max(...items.map(d => d.cost), 1);
       const maxHeight = 7.5;
       const cols = 5;
       const spacing = 2.8;
@@ -278,8 +278,7 @@
       const years = [...new Set(allReportsData.map(r => r.year))].filter(Boolean).sort().reverse();
       const yearSelect = document.getElementById('year-select');
       yearSelect.innerHTML = years.map(y => `<option value="${y}">ปี พ.ศ. ${y}</option>`).join('');
-      
-      onYearChange(); // trigger อัปเดตเดือน
+      onYearChange();
     }
 
     function onYearChange() {
@@ -287,9 +286,10 @@
       const filteredReports = allReportsData.filter(r => r.year === selectedYear);
       
       const monthSelect = document.getElementById('month-select');
-      monthSelect.innerHTML = filteredReports.map(r => 
-        `<option value="${r.date}">${THAI_MONTHS[r.month] || ('เดือน ' + r.month)}</option>`
-      ).join('');
+      monthSelect.innerHTML = filteredReports.map(r => {
+        const mName = THAI_MONTHS[r.month] || ('เดือน ' + r.month);
+        return `<option value="${r.date}">${mName}</option>`;
+      }).join('');
 
       onMonthChange();
     }
@@ -311,14 +311,13 @@
         const card = document.getElementById('detail-card');
         document.getElementById('popup-rank').innerText = `อันดับ ${item.rank}`;
         document.getElementById('popup-name').innerText = item.name;
-        document.getElementById('popup-spec').innerText = `ความแรง: ${item.strength || '-'} | หน่วย: ${item.unit || '-'}`;
+        document.getElementById('popup-spec').innerText = `ขนาดความแรง: ${item.strength || '-'} | หน่วย: ${item.unit || '-'}`;
         document.getElementById('popup-cost').innerText = Number(item.cost).toLocaleString();
         document.getElementById('popup-qty').innerText = `${Number(item.quantity).toLocaleString()} ${item.unit}`;
         card.style.display = 'block';
       }
     }
 
-    // เริ่มโหลดข้อมูล
     window.addEventListener('DOMContentLoaded', async () => {
       initScene();
       try {
@@ -326,14 +325,18 @@
         const data = await res.json();
         document.getElementById('loading-spinner').style.display = 'none';
 
-        if (data.success && data.reports.length > 0) {
+        if (data.success && data.reports && data.reports.length > 0) {
           allReportsData = data.reports;
           populateFilters();
+        } else if (data.success && data.items) {
+          // Fallback รองรับเวอร์ชันเดิม
+          renderReportData(data);
         } else {
-          alert('ไม่พบข้อมูลรายงาน');
+          alert('ไม่พบข้อมูลรายงานในระบบ');
         }
       } catch (err) {
-        document.getElementById('loading-spinner').innerText = 'โหลดข้อมูลไม่สำเร็จ ตรวจสอบ URL';
+        console.error(err);
+        document.getElementById('loading-spinner').innerText = 'โหลดข้อมูลไม่สำเร็จ ตรวจสอบสิทธิ์ URL';
       }
     });
   </script>
